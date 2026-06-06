@@ -73,7 +73,8 @@
     main { max-width: 900px; margin: 0 auto; padding: 24px 20px; padding-bottom: calc(var(--nav-h) + 24px); }
     .page { display: none; }
     .page.active { display: block; }
-    .section-label { font-family: var(--mono); font-size: 10px; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); margin-bottom: 18px; }
+    .section-label { font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+    .section-label::before { content: ''; display: inline-block; width: 3px; height: 16px; background: var(--accent); border-radius: 2px; }
     .info-bar { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 18px; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 24px; flex-wrap: wrap; gap: 10px; transition: background .3s, border-color .3s; }
     .info-bar span { color: var(--text); }
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 28px; }
@@ -200,6 +201,14 @@
 
 
 
+
+    /* TARJETA HORA */
+    .clock-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 14px; margin-bottom: 14px; transition: border-color .2s; }
+    .clock-icon { font-size: 36px; line-height: 1; flex-shrink: 0; }
+    .clock-info { display: flex; flex-direction: column; gap: 2px; }
+    .clock-time { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--accent); line-height: 1; }
+    .clock-date { font-size: 12px; color: var(--muted); }
+    .clock-moon { font-size: 11px; color: var(--text); margin-top: 3px; font-family: var(--mono); }
     /* CLIMA EXTERIOR */
     .weather-section { margin-top: 28px; }
     .weather-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 14px; }
@@ -299,6 +308,7 @@
           <div class="weather-city-name">📍 <span id="weather-city-display">Bucaramanga</span></div>
           <button class="weather-refresh" onclick="loadWeather()">↻ Actualizar</button>
         </div>
+        <div class="clock-card"><div class="clock-icon" id="clock-icon">☀️</div><div class="clock-info"><div class="clock-time" id="clock-time">--:--:--</div><div class="clock-date" id="clock-date">--</div><div class="clock-moon" id="clock-moon"></div></div></div>
         <div id="weather-content"><div class="weather-loading">Cargando clima...</div></div>
       </div>
     </div>
@@ -795,6 +805,63 @@
     } else renderChatList();
   };
 
+
+
+  // ── RELOJ Y FASE LUNAR ─────────────────────────────────────────────────
+  function getMoonPhase(date) {
+    // Ciclo lunar ~29.53 días. Referencia: luna nueva el 6 Jan 2000
+    const known = new Date(2000, 0, 6);
+    const diff = (date - known) / (1000 * 60 * 60 * 24);
+    const cycle = 29.53058867;
+    const phase = ((diff % cycle) + cycle) % cycle;
+    if (phase < 1.85)  return { name: 'Luna nueva',        icon: '🌑' };
+    if (phase < 5.54)  return { name: 'Luna creciente',    icon: '🌒' };
+    if (phase < 9.22)  return { name: 'Cuarto creciente',  icon: '🌓' };
+    if (phase < 12.91) return { name: 'Gibosa creciente',  icon: '🌔' };
+    if (phase < 16.61) return { name: 'Luna llena',        icon: '🌕' };
+    if (phase < 20.30) return { name: 'Gibosa menguante',  icon: '🌖' };
+    if (phase < 23.99) return { name: 'Cuarto menguante',  icon: '🌗' };
+    if (phase < 27.68) return { name: 'Luna menguante',    icon: '🌘' };
+    return { name: 'Luna nueva', icon: '🌑' };
+  }
+
+  function updateClock() {
+    const now = new Date();
+    const h = now.getHours();
+    const timeEl = document.getElementById('clock-time');
+    const dateEl = document.getElementById('clock-date');
+    const iconEl = document.getElementById('clock-icon');
+    const moonEl = document.getElementById('clock-moon');
+    if (!timeEl) return;
+
+    // Hora
+    timeEl.textContent = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    // Fecha
+    dateEl.textContent = now.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    // Icono según hora del día
+    if (h >= 6 && h < 8)       iconEl.textContent = '🌅'; // amanecer
+    else if (h >= 8 && h < 18) iconEl.textContent = '☀️'; // día
+    else if (h >= 18 && h < 20) iconEl.textContent = '🌆'; // atardecer
+    else {
+      // Noche: mostrar fase lunar
+      const moon = getMoonPhase(now);
+      iconEl.textContent = moon.icon;
+      moonEl.textContent = moon.name;
+      return;
+    }
+    // De día: limpiar texto de luna
+    const moon = getMoonPhase(now);
+    moonEl.textContent = moon.icon + ' ' + moon.name;
+  }
+
+  // Iniciar reloj al mostrar sección clima
+  setInterval(() => {
+    if (document.getElementById('weather-section') && document.getElementById('weather-section').style.display !== 'none') {
+      updateClock();
+    }
+  }, 1000);
 
   // ── CLIMA EXTERIOR (Open-Meteo) ────────────────────────────────────────
   const WMO_CODES = {
